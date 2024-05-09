@@ -29,3 +29,9 @@ pub mod pw_utils;
 
 #[cfg(not(feature = "xdp-gnome-screencast"))]
 pub use dummy_pw_utils as pw_utils;
+
+/// Used to provide output matching utility functions.
+pub trait OutputMatcher {
+    fn get_display_model_unique_id(&self) -> String;
+    fn match_config_name(&self, name: &str) -> bool;
+}

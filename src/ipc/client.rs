@@ -110,6 +110,7 @@ pub fn handle_msg(msg: Msg, json: bool) -> anyhow::Result<()> {
             outputs.sort_unstable_by(|a, b| a.0.cmp(&b.0));
 
             for (connector, output) in outputs.into_iter() {
+                let model_id = output.get_display_model_unique_id();
                 let Output {
                     name,
                     make,
@@ -123,6 +124,7 @@ pub fn handle_msg(msg: Msg, json: bool) -> anyhow::Result<()> {
                 } = output;
 
                 println!(r#"Output "{connector}" ({make} - {model} - {name})"#);
+                println!(r#"       {model_id}"#);
 
                 if let Some(current) = current_mode {
                     let mode = *modes

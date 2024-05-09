@@ -120,6 +120,7 @@ use crate::utils::{
 };
 use crate::window::{InitialConfigureState, Mapped, ResolvedWindowRules, Unmapped, WindowRef};
 use crate::{animation, niri_render_elements};
+use crate::OutputMatcher;
 
 const CLEAR_COLOR: [f32; 4] = [0.2, 0.2, 0.2, 1.];
 const CLEAR_COLOR_LOCKED: [f32; 4] = [0.3, 0.1, 0.1, 1.];
@@ -128,6 +129,16 @@ const CLEAR_COLOR_LOCKED: [f32; 4] = [0.3, 0.1, 0.1, 1.];
 // second, so with the worst timing the maximum interval between two frame callbacks for a surface
 // should be ~1.995 seconds.
 const FRAME_CALLBACK_THROTTLE: Option<Duration> = Some(Duration::from_millis(995));
+
+impl OutputMatcher for Output {
+    fn get_display_model_unique_id(&self) -> String {
+        let PhysicalProperties { make, model, .. } = self.physical_properties();
+        format!("{}|{}|{}", make, model, self.name())
+    }
+    fn match_config_name(&self, name: &str) -> bool {
+        self.name() == name || self.get_display_model_unique_id() == name
+    }
+}
 
 pub struct Niri {
     pub config: Rc<RefCell<Config>>,
@@ -920,7 +931,7 @@ impl State {
             for output in self.niri.global_space.outputs() {
                 let name = output.name();
                 let config = self.niri.config.borrow_mut();
-                let config = config.outputs.iter().find(|o| o.name == name);
+                let config = config.outputs.iter().find(|o| output.match_config_name(&o.name));
 
                 let scale = config.map(|c| c.scale).unwrap_or(1.);
                 let scale = scale.clamp(1., 10.).ceil() as i32;
@@ -1443,7 +1454,7 @@ impl Niri {
             let config = config
                 .outputs
                 .iter()
-                .find(|o| o.name == name)
+                .find(|o| output.match_config_name(&o.name))
                 .and_then(|c| c.position);
 
             outputs.push(Data {
@@ -1549,7 +1560,7 @@ impl Niri {
         let name = output.name();
 
         let config = self.config.borrow();
-        let c = config.outputs.iter().find(|o| o.name == name);
+        let c = config.outputs.iter().find(|o| output.match_config_name(&o.name));
         let scale = c.map(|c| c.scale).unwrap_or(1.);
         let scale = scale.clamp(1., 10.).ceil() as i32;
         let mut transform = c

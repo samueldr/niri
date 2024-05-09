@@ -268,6 +268,27 @@ pub struct Output {
     pub logical: Option<LogicalOutput>,
 }
 
+impl Output {
+    /// Unique identifier for a display, for a given connector name.
+    ///
+    /// Only unique for a given model.
+    /// Two of the same model will require a serial number to distinguish.
+    pub fn get_display_model_unique_id(&self) -> String {
+        get_display_model_unique_id(self.make.to_string(), self.model.to_string(), self.name.to_string())
+    }
+}
+
+/// Unique identifier for a display, for a given connector name.
+///
+/// Only unique for a given model.
+/// Two of the same model on the same connector name would require a serial number to distinguish.
+/// (E.g. same monitor at two physical locations.)
+pub fn get_display_model_unique_id(make: String, model: String, name: String) -> String {
+    // XXX arbitrary string format
+    // XXX in a shared lib?
+    format!("{make}|{model}|{name}").to_string()
+}
+
 /// Output mode.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct Mode {

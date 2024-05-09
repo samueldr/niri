@@ -11,6 +11,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{io, mem};
 
+use crate::OutputMatcher;
+
 use anyhow::{anyhow, bail, ensure, Context};
 use bytemuck::cast_slice_mut;
 use libc::dev_t;
@@ -166,6 +168,7 @@ struct TtyOutputState {
 
 struct Surface {
     name: String,
+    display_model_name: String,
     compositor: GbmDrmCompositor,
     dmabuf_feedback: Option<SurfaceDmabufFeedback>,
     gamma_props: Option<GammaProps>,
@@ -181,6 +184,15 @@ struct Surface {
     /// Plot name for the presentation misprediction plot.
     presentation_misprediction_plot_name: tracy_client::PlotName,
     sequence_delta_plot_name: tracy_client::PlotName,
+}
+
+impl OutputMatcher for Surface {
+    fn get_display_model_unique_id(&self) -> String {
+        self.display_model_name.to_string()
+    }
+    fn match_config_name(&self, name: &str) -> bool {
+        self.name == name || self.get_display_model_unique_id() == name
+    }
 }
 
 pub struct SurfaceDmabufFeedback {
@@ -681,6 +693,8 @@ impl Tty {
 
         let device = self.devices.get_mut(&node).context("missing device")?;
 
+        let display_model_name = get_display_model_unique_id_from_connector(&device.drm, &connector);
+
         let non_desktop = find_drm_property(&device.drm, connector.handle(), "non-desktop")
             .and_then(|(_, info, value)| info.value_type().convert_value(value).as_boolean())
             .unwrap_or(false);
@@ -704,7 +718,8 @@ impl Tty {
             .borrow()
             .outputs
             .iter()
-            .find(|o| o.name == output_name)
+            .find(|o| o.name == output_name || o.name == display_model_name) // XXX manually
+                                                                             // matching here
             .cloned()
             .unwrap_or_default();
 
@@ -903,6 +918,7 @@ impl Tty {
 
         let surface = Surface {
             name: output_name.clone(),
+            display_model_name: display_model_name.clone(),
             compositor,
             dmabuf_feedback,
             gamma_props,
@@ -1463,7 +1479,7 @@ impl Tty {
                     })
                     .map(logical_output);
 
-                let ipc_output = niri_ipc::Output {
+                let ipc_output = niri_ipc::Output { // <---- this is how I can get the info
                     name: connector_name.clone(),
                     make,
                     model,
@@ -1535,7 +1551,7 @@ impl Tty {
                     .borrow()
                     .outputs
                     .iter()
-                    .find(|o| o.name == surface.name)
+                    .find(|o| surface.match_config_name(&o.name))
                     .cloned()
                     .unwrap_or_default();
                 if config.off {
@@ -1660,12 +1676,14 @@ impl Tty {
                     connector.interface_id(),
                 );
 
+                let display_model_name = get_display_model_unique_id_from_connector(&device.drm, &connector);
+
                 let config = self
                     .config
                     .borrow()
                     .outputs
                     .iter()
-                    .find(|o| o.name == output_name)
+                    .find(|o| o.name == output_name || o.name == display_model_name) // XXX manually matching
                     .cloned()
                     .unwrap_or_default();
 
@@ -2140,6 +2158,24 @@ fn get_edid_info(device: &DrmDevice, connector: connector::Handle) -> Option<Edi
             None
         }
     }
+}
+
+fn get_display_model_unique_id_from_connector(device: &DrmDevice, connector: &connector::Info) -> String {
+    let output_name = format!(
+        "{}-{}",
+        connector.interface().as_str(),
+        connector.interface_id(),
+    );
+    let (make, model) = get_edid_info(&device, connector.handle())
+        .map(|info| {
+            (
+                truncate_to_nul(info.manufacturer),
+                truncate_to_nul(info.model),
+            )
+        })
+        .unwrap_or_else(|| ("Unknown".into(), "Unknown".into()));
+
+    format!("{}|{}|{}", make, model, output_name)
 }
 
 fn set_max_bpc(device: &DrmDevice, connector: connector::Handle, bpc: u64) -> anyhow::Result<u64> {
