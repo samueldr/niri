@@ -492,7 +492,7 @@ impl State {
         pointer.frame(self);
 
         // We moved the pointer, show it.
-        self.niri.pointer_hidden = false;
+        self.niri.show_pointer();
 
         // FIXME: granular
         self.niri.queue_redraw_all();
@@ -2018,6 +2018,24 @@ impl Niri {
             let output = output.clone();
             self.redraw(backend, &output);
         }
+    }
+
+    /// Used to coordinate additional behaviour when showing the pointer.
+    ///
+    /// No additional behaviour yet.
+    ///
+    /// Use this instead of `pointer_hidden = false;`
+    pub fn show_pointer(&mut self) {
+        self.pointer_hidden = false;
+    }
+
+    /// Used to coordinate additional behaviour when hiding the pointer.
+    ///
+    /// No additional behaviour yet.
+    ///
+    /// Use this instead of `pointer_hidden = true;`
+    pub fn hide_pointer(&mut self) {
+        self.pointer_hidden = true;
     }
 
     pub fn pointer_element<R: NiriRenderer>(

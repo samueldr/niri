@@ -822,7 +822,7 @@ impl State {
         let mut new_pos = pos + event.delta();
 
         // We received an event for the regular pointer, so show it now.
-        self.niri.pointer_hidden = false;
+        self.niri.show_pointer();
         self.niri.tablet_cursor_location = None;
 
         // Check if we have an active pointer constraint.
@@ -1037,7 +1037,7 @@ impl State {
         pointer.frame(self);
 
         // We moved the pointer, show it.
-        self.niri.pointer_hidden = false;
+        self.niri.show_pointer();
 
         // We moved the regular pointer, so show it now.
         self.niri.tablet_cursor_location = None;
@@ -1337,7 +1337,7 @@ impl State {
                 event.time_msec(),
             );
 
-            self.niri.pointer_hidden = false;
+            self.niri.show_pointer();
             self.niri.tablet_cursor_location = Some(pos);
         }
 
@@ -1403,7 +1403,7 @@ impl State {
                             event.time_msec(),
                         );
                     }
-                    self.niri.pointer_hidden = false;
+                    self.niri.show_pointer();
                     self.niri.tablet_cursor_location = Some(pos);
                 }
                 ProximityState::Out => {
@@ -1743,7 +1743,7 @@ impl State {
         );
 
         // We're using touch, hide the pointer.
-        self.niri.pointer_hidden = true;
+        self.niri.hide_pointer();
     }
     fn on_touch_up<I: InputBackend>(&mut self, evt: I::TouchUpEvent) {
         let Some(handle) = self.niri.seat.get_touch() else {
