@@ -216,6 +216,7 @@ pub struct Niri {
     /// When this happens, the pointer also loses any focus. This is so that touch can prevent
     /// various tooltips from sticking around.
     pub pointer_hidden: bool,
+    pub pointer_unclutter_token: Option<RegistrationToken>,
     pub tablet_cursor_location: Option<Point<f64, Logical>>,
     pub gesture_swipe_3f_cumulative: Option<(f64, f64)>,
     pub vertical_wheel_tracker: ScrollTracker,
@@ -1372,6 +1373,7 @@ impl Niri {
             cursor_shape_manager_state,
             dnd_icon: None,
             pointer_focus: PointerFocus::default(),
+            pointer_unclutter_token: None,
             pointer_hidden: false,
             tablet_cursor_location: None,
             gesture_swipe_3f_cumulative: None,
@@ -2022,10 +2024,30 @@ impl Niri {
 
     /// Used to coordinate additional behaviour when showing the pointer.
     ///
-    /// No additional behaviour yet.
+    ///  - Used to re-hide the pointer under "unclutter" situation after showing the pointer
     ///
     /// Use this instead of `pointer_hidden = false;`
     pub fn show_pointer(&mut self) {
+        let config = self.config.borrow();
+        let duration = config.cursor.unclutter;
+        if duration > 0.0 {
+            let timer_duration = Duration::from_millis((1000.0 * duration) as u64);
+            if let Some(token) = self.pointer_unclutter_token {
+                self.event_loop.remove(token);
+                self.pointer_unclutter_token = None;
+            }
+            self.pointer_unclutter_token = Some(
+                self.event_loop
+                .insert_source(Timer::from_duration(timer_duration),
+                    move |_, _, state| {
+                        state.niri.pointer_hidden = true;
+                        TimeoutAction::Drop
+                    },
+                )
+                .unwrap()
+            );
+        }
+
         self.pointer_hidden = false;
     }
 
