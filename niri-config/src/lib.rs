@@ -439,6 +439,8 @@ pub struct Cursor {
     pub xcursor_theme: String,
     #[knuffel(child, unwrap(argument), default = 24)]
     pub xcursor_size: u8,
+    #[knuffel(child, unwrap(argument), default = 0.0)]
+    pub unclutter: f64,
 }
 
 impl Default for Cursor {
@@ -446,6 +448,7 @@ impl Default for Cursor {
         Self {
             xcursor_theme: String::from("default"),
             xcursor_size: 24,
+            unclutter: 0.0,
         }
     }
 }
@@ -2080,6 +2083,7 @@ mod tests {
                 cursor: Cursor {
                     xcursor_theme: String::from("breeze_cursors"),
                     xcursor_size: 16,
+                    unclutter: 0.0,
                 },
                 screenshot_path: Some(String::from("~/Screenshots/screenshot.png")),
                 hotkey_overlay: HotkeyOverlay {
