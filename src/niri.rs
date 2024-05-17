@@ -211,11 +211,16 @@ pub struct Niri {
     pub cursor_shape_manager_state: CursorShapeManagerState,
     pub dnd_icon: Option<WlSurface>,
     pub pointer_focus: PointerFocus,
-    /// Whether the pointer is hidden, for example due to a previous touch input.
+    /// Whether the pointer is visually hidden.
     ///
-    /// When this happens, the pointer also loses any focus. This is so that touch can prevent
-    /// various tooltips from sticking around.
+    /// This only visually hides the pointer. The pointer is still part of the event chain and
+    /// focus. This is used for the unclutter feature.
     pub pointer_hidden: bool,
+    /// Whether the pointer is still part of the input events model.
+    /// 
+    /// When this happens, the pointer also loses any focus.
+    /// This is to prevent various tooltips from sticking around when using touch.
+    pub pointer_events_enabled: bool,
     pub pointer_unclutter_token: Option<RegistrationToken>,
     pub tablet_cursor_location: Option<Point<f64, Logical>>,
     pub gesture_swipe_3f_cumulative: Option<(f64, f64)>,
@@ -609,7 +614,7 @@ impl State {
 
         let pointer = &self.niri.seat.get_pointer().unwrap();
         let location = pointer.current_location();
-        let under = if self.niri.pointer_hidden {
+        let under = if !self.niri.pointer_events_enabled {
             PointerFocus::default()
         } else {
             self.niri.surface_under_and_global_space(location)
@@ -1375,6 +1380,7 @@ impl Niri {
             pointer_focus: PointerFocus::default(),
             pointer_unclutter_token: None,
             pointer_hidden: false,
+            pointer_events_enabled: true,
             tablet_cursor_location: None,
             gesture_swipe_3f_cumulative: None,
             vertical_wheel_tracker: ScrollTracker::new(120),
@@ -2040,6 +2046,9 @@ impl Niri {
                 self.event_loop
                 .insert_source(Timer::from_duration(timer_duration),
                     move |_, _, state| {
+                        // We're purposefully not disabling pointer events here
+                        // This would break things like clicking or scrolling without moving the
+                        // mouse.
                         state.niri.pointer_hidden = true;
                         TimeoutAction::Drop
                     },
@@ -2049,6 +2058,7 @@ impl Niri {
         }
 
         self.pointer_hidden = false;
+        self.pointer_events_enabled = true;
     }
 
     /// Used to coordinate additional behaviour when hiding the pointer.
@@ -2058,6 +2068,7 @@ impl Niri {
     /// Use this instead of `pointer_hidden = true;`
     pub fn hide_pointer(&mut self) {
         self.pointer_hidden = true;
+        self.pointer_events_enabled = false;
     }
 
     pub fn pointer_element<R: NiriRenderer>(
@@ -2065,7 +2076,7 @@ impl Niri {
         renderer: &mut R,
         output: &Output,
     ) -> Vec<OutputRenderElements<R>> {
-        if self.pointer_hidden {
+        if !self.pointer_events_enabled {
             return vec![];
         }
 
@@ -2152,7 +2163,7 @@ impl Niri {
     }
 
     pub fn refresh_pointer_outputs(&mut self) {
-        if self.pointer_hidden {
+        if !self.pointer_events_enabled {
             return;
         }
 
@@ -2345,7 +2356,7 @@ impl Niri {
 
         // The pointer goes on the top.
         let mut elements = vec![];
-        if include_pointer {
+        if include_pointer && !self.pointer_hidden {
             elements = self.pointer_element(renderer, output);
         }
 
