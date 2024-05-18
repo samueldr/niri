@@ -133,10 +133,12 @@ const FRAME_CALLBACK_THROTTLE: Option<Duration> = Some(Duration::from_millis(995
 impl OutputMatcher for Output {
     fn get_display_model_unique_id(&self) -> String {
         let PhysicalProperties { make, model, .. } = self.physical_properties();
-        format!("{}|{}|{}", make, model, self.name())
+        format!("{}|{}", make, model)
     }
     fn match_config_name(&self, name: &str) -> bool {
-        self.name() == name || self.get_display_model_unique_id() == name
+        name == self.name() ||
+        name == self.get_display_model_unique_id() ||
+        name == format!("{}|{}", self.get_display_model_unique_id(), self.name())
     }
 }
 

@@ -684,11 +684,7 @@ impl Tty {
         connector: connector::Info,
         crtc: crtc::Handle,
     ) -> anyhow::Result<()> {
-        let output_name = format!(
-            "{}-{}",
-            connector.interface().as_str(),
-            connector.interface_id(),
-        );
+        let output_name = get_output_name_from_connector(&connector);
         debug!("connecting connector: {output_name}");
 
         let device = self.devices.get_mut(&node).context("missing device")?;
@@ -718,8 +714,12 @@ impl Tty {
             .borrow()
             .outputs
             .iter()
-            .find(|o| o.name == output_name || o.name == display_model_name) // XXX manually
-                                                                             // matching here
+            .find(|o|
+                // XXX manually matching
+                o.name == output_name ||
+                o.name == display_model_name ||
+                o.name == format!("{}|{}", display_model_name, output_name)
+            )
             .cloned()
             .unwrap_or_default();
 
@@ -1479,7 +1479,7 @@ impl Tty {
                     })
                     .map(logical_output);
 
-                let ipc_output = niri_ipc::Output { // <---- this is how I can get the info
+                let ipc_output = niri_ipc::Output {
                     name: connector_name.clone(),
                     make,
                     model,
@@ -1670,12 +1670,7 @@ impl Tty {
                     continue;
                 }
 
-                let output_name = format!(
-                    "{}-{}",
-                    connector.interface().as_str(),
-                    connector.interface_id(),
-                );
-
+                let output_name = get_output_name_from_connector(connector);
                 let display_model_name = get_display_model_unique_id_from_connector(&device.drm, &connector);
 
                 let config = self
@@ -1683,7 +1678,12 @@ impl Tty {
                     .borrow()
                     .outputs
                     .iter()
-                    .find(|o| o.name == output_name || o.name == display_model_name) // XXX manually matching
+                    .find(|o|
+                        // XXX manually matching
+                        o.name == output_name ||
+                        o.name == display_model_name ||
+                        o.name == format!("{}|{}", display_model_name, output_name)
+                    )
                     .cloned()
                     .unwrap_or_default();
 
@@ -2160,12 +2160,14 @@ fn get_edid_info(device: &DrmDevice, connector: connector::Handle) -> Option<Edi
     }
 }
 
-fn get_display_model_unique_id_from_connector(device: &DrmDevice, connector: &connector::Info) -> String {
-    let output_name = format!(
+fn get_output_name_from_connector(connector: &connector::Info) -> String {
+    format!(
         "{}-{}",
         connector.interface().as_str(),
         connector.interface_id(),
-    );
+    )
+}
+fn get_display_model_unique_id_from_connector(device: &DrmDevice, connector: &connector::Info) -> String {
     let (make, model) = get_edid_info(&device, connector.handle())
         .map(|info| {
             (
@@ -2175,7 +2177,7 @@ fn get_display_model_unique_id_from_connector(device: &DrmDevice, connector: &co
         })
         .unwrap_or_else(|| ("Unknown".into(), "Unknown".into()));
 
-    format!("{}|{}|{}", make, model, output_name)
+    format!("{}|{}", make, model)
 }
 
 fn set_max_bpc(device: &DrmDevice, connector: connector::Handle, bpc: u64) -> anyhow::Result<u64> {

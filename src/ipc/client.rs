@@ -125,6 +125,7 @@ pub fn handle_msg(msg: Msg, json: bool) -> anyhow::Result<()> {
 
                 println!(r#"Output "{connector}" ({make} - {model} - {name})"#);
                 println!(r#"       {model_id}"#);
+                println!(r#"       {model_id}|{connector}"#);
 
                 if let Some(current) = current_mode {
                     let mode = *modes
