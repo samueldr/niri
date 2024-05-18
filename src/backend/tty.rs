@@ -191,7 +191,9 @@ impl OutputMatcher for Surface {
         self.display_model_name.to_string()
     }
     fn match_config_name(&self, name: &str) -> bool {
-        self.name == name || self.get_display_model_unique_id() == name
+        name == self.name ||
+        name == self.get_display_model_unique_id() ||
+        name == format!("{}|{}", self.get_display_model_unique_id(), self.name)
     }
 }
 
